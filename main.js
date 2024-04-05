@@ -1,12 +1,11 @@
 // from github by KaticNikola at 2024-04-05
 // edit by msnbrest ( fix game_over and retry, mix sounds + ogg, sort code, better header + init, cursor paddle, add move when collision, to objs, help... )
 
-// TODO prévoir position qui sera testee pour collision
-// TODO lorsque touche coté brique, alors ch dx  collisionBallBricks
-
-let imgs= {}, sons= {}, cvs, cxt, paddle, ball, brick, soundg, keybo, sys;
+let imgs= {}, sons= {}, cvs, cxt, paddle, ball, brick, soundg, keys, sys, isLevelDone= true;
 
 
+
+// TODO ball.speed when bonus/malus
 
 const _sel= sel=> document.querySelector(sel),
 
@@ -14,54 +13,81 @@ const _sel= sel=> document.querySelector(sel),
 
 init= _=>{
 
-// load imgs sounds
-imgs.bg= new Image();   imgs.bg.src= "img/bg.jpg";
-imgs.level= new Image();   imgs.level.src= "img/level.png";
-imgs.life= new Image();   imgs.life.src= "img/life.png";
-imgs.score= new Image();   imgs.score.src= "img/score.png";
-sons.wall= { a:new Audio(), n:0 };   sons.wall.a.src= "sounds/wall.ogg";
-sons.life= { a:new Audio(), n:0 };   sons.life.a.src= "sounds/life_lost.ogg";
-sons.paddle= { a:new Audio(), n:0 };   sons.paddle.a.src= "sounds/paddle_hit1.mp3";
-sons.win= { a:new Audio(), n:0 };   sons.win.a.src= "sounds/win.ogg";
-sons.brick= { a:new Audio(), n:0 };   sons.brick.a.src= "sounds/brick_hit.mp3";
+	pre_load();
+	// load imgs sounds
+	let blocs= {
+		"imgs": { globa: imgs, init: _=>{ return new Image(); } },
+		"sons": { globa: sons, init: _=>{ return new Audio(); } },
+	};
+
+	[
+		{ bloctype: "imgs", dest: "bg", from: "img/bg.jpg" },
+		{ bloctype: "imgs", dest: "bg1", from: "img/bg1.jpg" },
+		{ bloctype: "imgs", dest: "level", from: "img/level.png" },
+		{ bloctype: "imgs", dest: "life", from: "img/life.png" },
+		{ bloctype: "imgs", dest: "score", from: "img/score.png" },
+		{ bloctype: "sons", dest: "wall", from: "sounds/wall.ogg" },
+		{ bloctype: "sons", dest: "life", from: "sounds/life_lost.ogg" },
+		{ bloctype: "sons", dest: "paddle", from: "sounds/paddle_hit1.mp3" },
+		{ bloctype: "sons", dest: "win", from: "sounds/win.ogg" },
+		{ bloctype: "sons", dest: "brick", from: "sounds/brick_hit.mp3" },
+	].forEach( obj=>{
+
+		// create element and attributes
+		blocs[ obj.bloctype ].globa[ obj.dest ]= blocs[ obj.bloctype ].init(); // ex: imgs["bg"]= new Image();
+		blocs[ obj.bloctype ].globa[ obj.dest ].src= obj.from;
+		blocs[ obj.bloctype ].globa[ obj.dest ].n= 0; // audio utile antispam
+		sys.loadwait++;
+
+		// join trigger
+		if( obj.bloctype=="imgs" ){
+			blocs[ obj.bloctype ].globa[ obj.dest ].onload= _=>{   sys.loaded++;   sys.loaded>=sys.loadwait &&( init_part2() );   };
+		}
+		if( obj.bloctype=="sons" ){
+			blocs[ obj.bloctype ].globa[ obj.dest ].onloadedmetadata= _=>{   sys.loaded++;   sys.loaded>=sys.loadwait &&( init_part2() );   };
+		}
+	} );
+},
 
 
 
-// set draw zone
-cvs= _sel("#game");
+init_part2= _=>{
 
-cxt= cvs.getContext('2d');
+	// set draw zone
+	cvs= _sel("#game");
 
-cvs.style.border= '1px solid #0ff';
-cxt.lineWidth= 2; // paddle border 
+	cxt= cvs.getContext('2d');
+
+	cvs.style.border= '1px solid #0ff';
+	cxt.lineWidth= 2; // paddle border
 
 
 
-// actions buttons & mouse
-soundg= {   btn: _sel('#soundBtn'),   is: true   };
+	// actions buttons & mouse
+	soundg= {   btn: _sel('#soundBtn'),   is: true   };
 
-soundg.btn.addEventListener('click', osef=>{
-	soundg.is= !soundg.is;
-	soundg.btn.setAttribute('src', soundg.is ? "img/SOUND_ON.png" : "img/SOUND_OFF.png" );
-	sons.forEach( son=>{ son.muted= !soundg.is; } );
-});
+	soundg.btn.addEventListener('click', osef=>{
+		soundg.is= !soundg.is;
+		soundg.btn.setAttribute('src', soundg.is ? "img/SOUND_ON.png" : "img/SOUND_OFF.png" );
+		Object.keys(sons).forEach( son=>{ sons[son].muted= !soundg.is; } );
+	});
 
-_sel(".table").addEventListener('click', e=>{ sys.game_over &&(   retry(true,event)   ); });
+	_sel(".table").addEventListener('click', e=>{ sys.game_over &&(   retry(true,event)   ); });
 
-document.addEventListener("keydown", e=>{
-	e.keyCode == 37 &&( keybo.left= true );
-	e.keyCode == 39 &&( keybo.right= true );
-	e.keyCode == 96 && sys.game_over &&(   retry(true,null)   );
-});
+	document.addEventListener("keydown", e=>{
+		e.keyCode == 37 &&( keys.left= true );
+		e.keyCode == 39 &&( keys.right= true );
+		e.keyCode == 96 && sys.game_over &&(   retry(true,null)   );
+	});
 
-document.addEventListener("keyup", e=>{
-	e.keyCode == 37 &&( keybo.left= false );
-	e.keyCode == 39 &&( keybo.right= false);
-});
+	document.addEventListener("keyup", e=>{
+		e.keyCode == 37 &&( keys.left= false );
+		e.keyCode == 39 &&( keys.right= false);
+	});
 
-document.addEventListener("mousemove", mousemoved);
+	document.addEventListener("mousemove", mousemoved);
 
-retry(false,null);
+	retry(false,null);
 
 },
 
@@ -72,20 +98,20 @@ mousemoved= event=>{ paddle.x= Math.max( 0, Math.min( event.clientX-cvs.offsetLe
 
 
 drawBall= _=>{
-	cxt.beginPath();
 
+	cxt.beginPath();
 	cxt.arc(ball.x, ball.y, ball.radius-2, 0, Math.PI * 2);
 	cxt.fillStyle= '#ffcd05';
 	cxt.fill();
 	cxt.strokeStyle= '#2e3548';
 	cxt.stroke();
-
 	cxt.closePath();
 },
 
 
 
 drawPaddle= _=>{
+
 	cxt.fillStyle= '#2e3548';
 	cxt.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
 	cxt.strokeStyle= '#ffcd05';
@@ -95,20 +121,14 @@ drawPaddle= _=>{
 
 
 drawBricks= _=>{
-	for (let r= 0; r < brick.row; r++) {
-		for (let c= 0; c < brick.columns; c++) {
-			let b= sys.bricks[r][c];//loop created brics
-			if (b.status) {
-				cxt.fillStyle= brick.fillColor;
-				cxt.fillRect(
-					b.x, b.y,//from loopCreated brick  
-					brick.width, brick.height);
 
-				cxt.strokeStyle= brick.strokeColor;
-				cxt.strokeRect(
-					b.x, b.y,//from loopCreated brick  
-					brick.width, brick.height);
-			}
+	isLevelDone= true;
+	cxt.fillStyle= brick.fillColor;
+	cxt.strokeStyle= brick.strokeColor;
+	for( let r= 0; r < brick.row; r++ ){
+		for( let c= 0; c < brick.columns; c++ ){
+			strike_or_draw_brick( sys.bricks[r][c] );
+			isLevelDone= isLevelDone && !sys.bricks[r][c].status;
 		}
 	}
 },
@@ -116,6 +136,7 @@ drawBricks= _=>{
 
 
 showGameStats= (txt, txtX, txtY, img, imgX, imgY)=>{
+
 	//text
 	cxt.fillStyle= 'fff';
 	cxt.font= '25px Germania One';
@@ -128,9 +149,10 @@ showGameStats= (txt, txtX, txtY, img, imgX, imgY)=>{
 
 
 movePaddle= _=>{
-	if (keybo.right && paddle.x + paddle.width < cvs.width) {
+
+	if( keys.right && paddle.x + paddle.width < cvs.width ){
 		paddle.x += paddle.vx;
-	} else if (keybo.left && paddle.x > 0) {
+	}else if( keys.left && paddle.x > 0 ){
 		paddle.x -= paddle.vx;
 	}
 },
@@ -138,6 +160,7 @@ movePaddle= _=>{
 
 
 moveBall= _=>{
+
 	ball.x+= ball.dx;
 	ball.y+= ball.dy;
 	ball.px= ball.x + ball.dx;
@@ -160,6 +183,7 @@ ball_new_dir= ( inv_dx, inv_dy, new_dx=null, new_dy=null )=>{
 
 
 collisionBallWall= _=>{
+
 	if( ball.px - ball.radius < 0 ){
 		ball_new_dir( false, false, Math.abs(ball.dx), ball.dy );
 		sons.wall.n++;
@@ -182,6 +206,7 @@ collisionBallWall= _=>{
 
 
 collisionBallPaddle= _=>{
+
 	if( ball.px - ball.radius < paddle.x + paddle.width &&
 		ball.px + ball.radius > paddle.x &&
 		ball.py - ball.radius < paddle.y + paddle.height &&
@@ -194,18 +219,8 @@ collisionBallPaddle= _=>{
 
 
 
-collisionBallBricks= _=>{
-	let b;
-	for (let r= 0; r < brick.row; r++) {
-		for (let c= 0; c < brick.columns; c++) {
-			is_strike_brick( sys.bricks[r][c] )
-		}
-	}
-},
+strike_or_draw_brick= b=>{
 
-
-
-is_strike_brick= b=>{
 	if( !b.status ){ return; }
 
 	if(
@@ -221,42 +236,48 @@ is_strike_brick= b=>{
 		if( ball.y - ball.radius >= b.y + brick.height ){ ball_new_dir( false, false, ball.dx, Math.abs(ball.dy) ); }
 
 		b.status= false;
-		sys.score ++;
+		sys.score++;
+		levelUp.testable= true;
+	}
+
+	if( b.status ){
+		cxt.fillRect( b.x, b.y,brick.width, brick.height);
+		cxt.strokeRect( b.x, b.y, brick.width, brick.height);
 	}
 },
 
 
 
-levelUp= _=>{
-	let isLevelDone= true;
+levelUp= {
+	testable: false,
+	test: _=>{
 
-	//are all bricks broken
-	for (let r= 0; r < brick.row; r++) {
-		for (let c= 0; c < brick.columns; c++) {
-			isLevelDone= isLevelDone && !sys.bricks[r][c].status
+		if( !levelUp.testable ){ return; }
+
+		if( isLevelDone ){
+			sons.win.n++;
+			if( sys.level > sys.max_level ){
+				sys.game_over= true;
+				return;
+			}
+			brick.row++;
+			createBricks();
+			resetBall();
+			sys.level++;
+			if( sys.life<3 ){ sys.life= 3; }   sys.life++;
 		}
-	}
-	if (isLevelDone) {
-		sons.win.n++;
-		if( sys.level > sys.max_level ){
-			sys.game_over= true;
-			return;
-		}
-		brick.row++;
-		createBricks();
-		ball.speed+= 0.25;   resetBall();
-		sys.level++;
-		if( sys.life<3 ){ sys.life= 3; }   sys.life++;
+		levelUp.testable= false;
 	}
 },
 
 
 
 createBricks= _=>{
-	for (let r= 0; r < brick.row; r++) {
-		sys.bricks[r]= []//create row
-		for (let c= 0; c < brick.columns; c++) {
-			sys.bricks[r][c]= { //individual brick
+
+	for( let r= 0; r < brick.row; r++ ){
+		sys.bricks[r]= [];
+		for( let c= 0; c < brick.columns; c++ ){
+			sys.bricks[r][c]= {
 				x: c * (brick.offsetLeft + brick.width) + brick.offsetLeft,
 				y: r * (brick.offsetTop + brick.height) + brick.offsetTop + brick.marginTop,
 				status: true
@@ -269,19 +290,30 @@ createBricks= _=>{
 
 
 resetBall= _=>{
-	ball.x= paddle.x + paddle.width/2;
+
+	ball.x= paddle.x + paddle.width/2 + 0.01;
 	ball.y= paddle.y - ball.radius;
 	ball_new_dir( false, false, 0, -ball.speed*.8 ); // friendly start speed
 },
 
 
 
+pre_load= _=>{
+
+	keys= { left: false, right: false };
+
+	sys= {
+		life: 3, score: 0, level: 0,
+		loaded: 0, loadwait: 0,
+		max_level: 10, game_over: true, bricks: [], fps8: 0
+	};
+},
+
+
+
 retry= (lezgo,event)=>{
 
-	keybo= { left: false, right: false };
-	sys= { life: 3, score: 0, level: 0, max_level: 5, game_over: true, bricks: [], fps8: 0 };
-
-
+	pre_load();
 
 	paddle= {
 		x: null,
@@ -289,12 +321,12 @@ retry= (lezgo,event)=>{
 		width: 100,
 		height: 20,
 
-		vx: 5, //define movement 
+		vx: 5, //define movement
 	};
 	if( event ){
 		mousemoved(event);
 	}else{
-		paddle.x= cvs.width / 2 - paddle.width / 2 + 0.1;
+		paddle.x= cvs.width / 2 - paddle.width / 2;
 	}
 	paddle.y= cvs.height - paddle.height - 10;
 
@@ -313,8 +345,8 @@ retry= (lezgo,event)=>{
 
 
 	brick= {
-		row: 2,
-		columns: 8,
+		row: 1,
+		columns: 2,
 		width: 55,
 		height: 20,
 		offsetLeft: 10,
@@ -337,7 +369,7 @@ retry= (lezgo,event)=>{
 
 
 
-goplay= son=>{   son.n>0 &&(   son.a.currentTime= 0,   son.a.play(),   son.n--   );   },
+goplay= son=>{   son.n>0 &&(   son.currentTime= 0,   son.play(),   son.n--   );   },
 
 
 
@@ -367,9 +399,7 @@ loop= more=>{
 	moveBall();
 	collisionBallWall();
 	collisionBallPaddle();
-	collisionBallBricks();
-
-	levelUp();
+	levelUp.test();
 	sys.fps8++;   if( sys.fps8>7 ){   tick_fps8();   sys.fps8= 0;   }
 
 	(sys.life < 0)&&( sys.game_over= true, _sel(".help").innerHTML= "End of Game.<br><br>Click to replay" );
