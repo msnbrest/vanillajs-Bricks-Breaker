@@ -1,8 +1,5 @@
-#soundBtn{
-    width: 30px;
-    height: 30px;
-    cursor: pointer;
-    position: absolute;
-    top: 465px;
-    left: 15px;
-}
+body{cursor:crosshair;}
+div{position:relative;}
+.table{display:table;}
+#soundBtn{ position:absolute;top:15px;left:380px;width:30px;height:30px;cursor:pointer; }
+.help{ position:absolute;top:160px;left:0;width:100%;text-align:center; }
