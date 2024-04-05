@@ -345,8 +345,8 @@ retry= (lezgo,event)=>{
 
 
 	brick= {
-		row: 1,
-		columns: 2,
+		row: 2,
+		columns: 8,
 		width: 55,
 		height: 20,
 		offsetLeft: 10,
