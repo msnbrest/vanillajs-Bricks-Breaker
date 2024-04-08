@@ -1,7 +1,7 @@
 // from github by KaticNikola at 2024-04-05
 // edit by msnbrest ( fix game_over and retry, mix sounds + ogg, sort code, better header + init, cursor paddle, add move when collision, to objs, help... )
 
-let imgs= {}, sons= {}, cvs, cxt, paddle, ball, brick, soundg, keys, sys, isLevelDone= true;
+let joueurs= { aqui:null, list:null }, imgs= {}, sons= {}, cvs, cxt, paddle, ball, brick, soundg, keys, sys, isLevelDone= true;
 
 
 
@@ -12,6 +12,9 @@ const _sel= sel=> document.querySelector(sel),
 
 
 init= _=>{
+
+	const str_nb= prompt("Combien de joueurs?",1);
+	joueurs.list= str_nb>0? [...Array(+str_nb)].map( vv=> [] ): [[]];
 
 	pre_load();
 	// load imgs sounds
@@ -37,6 +40,7 @@ init= _=>{
 		blocs[ obj.bloctype ].globa[ obj.dest ]= blocs[ obj.bloctype ].init(); // ex: imgs["bg"]= new Image();
 		blocs[ obj.bloctype ].globa[ obj.dest ].src= obj.from;
 		blocs[ obj.bloctype ].globa[ obj.dest ].n= 0; // audio utile antispam
+		if( obj.bloctype=="sons" ){ blocs[ obj.bloctype ].globa[ obj.dest ].muted= true; }
 		sys.loadwait++;
 
 		// join trigger
@@ -58,17 +62,17 @@ init_part2= _=>{
 
 	cxt= cvs.getContext('2d');
 
-	cvs.style.border= '1px solid #0ff';
-	cxt.lineWidth= 2; // paddle border
+	cvs.style.boxShadow= '1px solid #0ff';
+	cxt.lineWidth= 2;
 
 
 
 	// actions buttons & mouse
-	soundg= {   btn: _sel('#soundBtn'),   is: true   };
+	soundg= {   btn: _sel('#soundBtn'),   is: false   };
 
 	soundg.btn.addEventListener('click', osef=>{
 		soundg.is= !soundg.is;
-		soundg.btn.setAttribute('src', soundg.is ? "img/SOUND_ON.png" : "img/SOUND_OFF.png" );
+		soundg.btn.setAttribute('src', soundg.is ? "img/sounds_on.svg" : "img/sounds_off.svg" );
 		Object.keys(sons).forEach( son=>{ sons[son].muted= !soundg.is; } );
 	});
 
@@ -120,7 +124,7 @@ drawPaddle= _=>{
 
 
 
-drawBricks= _=>{
+collision_and_drawBricks= _=>{
 
 	isLevelDone= true;
 	cxt.fillStyle= brick.fillColor;
@@ -143,7 +147,7 @@ showGameStats= (txt, txtX, txtY, img, imgX, imgY)=>{
 	cxt.fillText(txt, txtX, txtY);
 
 	//image
-	cxt.drawImage(img, imgX, imgY, width= 25, height= 25)
+	cxt.drawImage(img, imgX, imgY, 25, 25)
 },
 
 
@@ -313,6 +317,8 @@ pre_load= _=>{
 
 retry= (lezgo,event)=>{
 
+	lezgo &&( joueurs.aqui= joueurs.aqui==null? 0: ((joueurs.aqui+1)%joueurs.list.length) );
+
 	pre_load();
 
 	paddle= {
@@ -384,25 +390,37 @@ tick_fps8= _=>{
 
 
 
+calc_show_scores= _=>{
+
+	joueurs.list[joueurs.aqui].push({ life: sys.life, score: sys.score, level: sys.level });
+	_sel(".help").innerHTML= "End of Game.<br><br>Click to replay<br><br>"
+		+ joueurs.list.map( (vv,kk)=> `joueur ${kk+1}:<br>`
+			+ vv.map( v2=> `&#62; ${v2.score} points à ${v2.life} vies au lvl ${v2.level+1}` ).join("<br>")
+		).join("<br><br>");
+},
+
+
+
 loop= more=>{
-
-	cxt.drawImage(imgs.bg, 0, 0, cvs.width, cvs.height);
-	drawBall();
-	drawPaddle();
-	drawBricks();
-
-	showGameStats(sys.score, 35, 25, imgs.score, 5, 5);
-	showGameStats(sys.life, cvs.width - 25, 25, imgs.life, cvs.width - 55, 5);
-	showGameStats(sys.level+1, cvs.width / 2, 25, imgs.level, cvs.width / 2 - 30, 5);
 
 	movePaddle();
 	moveBall();
 	collisionBallWall();
 	collisionBallPaddle();
+
+	cxt.drawImage(imgs.bg, 0, 0, cvs.width, cvs.height);
+	collision_and_drawBricks();
+	drawBall();
+	drawPaddle();
+
+	showGameStats(sys.score, 45, 35, imgs.score, 15, 13);
+	showGameStats(sys.level+1, cvs.width / 2, 35, imgs.level, cvs.width / 2 - 30, 13);
+	showGameStats(sys.life, cvs.width - 45, 35, imgs.life, cvs.width - 75, 13);
+
 	levelUp.test();
 	sys.fps8++;   if( sys.fps8>7 ){   tick_fps8();   sys.fps8= 0;   }
 
-	(sys.life < 0)&&( sys.game_over= true, _sel(".help").innerHTML= "End of Game.<br><br>Click to replay" );
+	(sys.life < 1)&&( sys.game_over= true, calc_show_scores() );
 
 	sys.game_over ||( more &&( requestAnimationFrame(loop) ) );
 };

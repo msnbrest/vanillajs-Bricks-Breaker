@@ -1,5 +1,6 @@
-body{cursor:crosshair;}
+body{margin:0;cursor:crosshair;overflow:hidden;}
 div{position:relative;}
+canvas{display:block}
 .table{display:table;}
-#soundBtn{ position:absolute;top:15px;left:380px;width:30px;height:30px;cursor:pointer; }
+#soundBtn{ position:absolute;top:10px;left:67%;width:30px;height:30px;cursor:pointer; }
 .help{ position:absolute;top:160px;left:0;width:100%;text-align:center; }
