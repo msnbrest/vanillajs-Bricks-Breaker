@@ -13,7 +13,14 @@ const _sel= sel=> document.querySelector(sel),
 
 init= _=>{
 
-	const str_nb= prompt("Combien de joueurs?",1);
+	let str_nb= prompt("Combien de joueurs?",1);
+	let lost_sound= "sounds/life_lost.ogg";
+	let brik_sound= "sounds/brick_hit.ogg";
+	if( str_nb==42 ){
+		str_nb= "1";
+		lost_sound= "sounds/life_lost_fart.mp3";
+		brik_sound= "sounds/brick_hit_poc.mp3";
+	}
 	joueurs.list= str_nb>0? [...Array(+str_nb)].map( vv=> [] ): [[]];
 
 	pre_load();
@@ -29,11 +36,11 @@ init= _=>{
 		{ bloctype: "imgs", dest: "level", from: "img/level.png" },
 		{ bloctype: "imgs", dest: "life", from: "img/life.png" },
 		{ bloctype: "imgs", dest: "score", from: "img/score.png" },
-		{ bloctype: "sons", dest: "wall", from: "sounds/wall.ogg" },
-		{ bloctype: "sons", dest: "life", from: "sounds/life_lost.ogg" },
+		{ bloctype: "sons", dest: "wall", from: "sounds/wall.mp3" },
+		{ bloctype: "sons", dest: "life", from: lost_sound },
 		{ bloctype: "sons", dest: "paddle", from: "sounds/paddle_hit1.mp3" },
 		{ bloctype: "sons", dest: "win", from: "sounds/win.ogg" },
-		{ bloctype: "sons", dest: "brick", from: "sounds/brick_hit.mp3" },
+		{ bloctype: "sons", dest: "brick", from: brik_sound },
 	].forEach( obj=>{
 
 		// create element and attributes
